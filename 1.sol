@@ -118,6 +118,8 @@ contract Estate {
         sells[_id].ForSale = false;
         sells[_id].price = 0;
         sells[_id].SaleTerm = 0;
+        
+        proof = 0
     }
 
     function checkEstates() public view returns (RealEstate[] memory) {
