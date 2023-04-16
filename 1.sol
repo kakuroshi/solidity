@@ -48,25 +48,23 @@ contract Estate {
         bool ForSale;
         uint price;
         uint SaleTerm;
+        address Customer;
     } 
 
-    address admin = 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2;
-    address owner = 0x5B38Da6a701c568545dCfcB03FcB875f56beddC4;
-    address client;
-    uint proof = 0;
+    address admin = 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2;  
 
     RealEstate[] public estates; 
     Sell[] public sells; 
 
     constructor () { 
-        estates.push(RealEstate(0, owner, 50, 7));
-        sells.push(Sell(0, false, 0, 0));
+        estates.push(RealEstate(0, 0x5B38Da6a701c568545dCfcB03FcB875f56beddC4, 50, 7));
+        sells.push(Sell(0, false, 0, 0, address(0)));
     } 
 
     function registerEstate (uint _id, address _owner, uint _square, uint _lifetime) public { 
         require(msg.sender == admin, "Insufficient rights to register property"); 
         estates.push(RealEstate(_id, _owner, _square, _lifetime));
-        sells.push(Sell(_id, false, 0, 0));
+        sells.push(Sell(_id, false, 0, 0, address(0)));
     } 
 
     function saleOfRealEstate(uint _id, uint _price, uint _SaleTerm) public { 
@@ -76,50 +74,40 @@ contract Estate {
         sells[_id].ForSale = true;
         sells[_id].price = _price;
         sells[_id].SaleTerm = _SaleTerm;
+        sells[_id].Customer = address(0);
     }
 
-    function CancelSell(uint _id) public {
+    function CancelSell(uint _id) public payable {
         require(sells[_id].ForSale == true);
         require(msg.sender == estates[_id].owner);
+        if (sells[_id].Customer != address(0)) {
+            payable(sells[_id].Customer).transfer(sells[_id].price*(10**18));
+        }
 
         sells[_id].ForSale = false;
         sells[_id].price = 0;
         sells[_id].SaleTerm = 0;
+        sells[_id].Customer = address(0);
     }
 
     function perevod (uint _id) public payable { 
-        require(msg.value > 0, "Enter transfer amount");
         require(msg.value == sells[_id].price * (10**18));
-        client = msg.sender;
+        sells[_id].Customer = msg.sender;
     } 
 
-    function confirm (uint _id, bool _proof) public {
+    function confirm (uint _id) public payable{
         require(msg.sender == estates[_id].owner);
         require(sells[_id].ForSale == true);
-
-        if (_proof == false) {
-            proof = 1; 
-            payable(client).transfer(sells[_id].price * (10**18));
-        } else if (_proof == true) {
-            proof = 2;
-        }
-    }
- 
-    function buyEstate(uint _id) public payable {
-        require(sells[_id].SaleTerm > 0);
-        require(msg.sender != estates[_id].owner);
-        require(sells[_id].ForSale == true);
-        require(proof == 2);
+        require(sells[_id].Customer != address(0));
 
         payable(estates[_id].owner).transfer(sells[_id].price * (10**18));
         
-        estates[_id].owner = msg.sender;
+        estates[_id].owner = sells[_id].Customer;
 
         sells[_id].ForSale = false;
         sells[_id].price = 0;
         sells[_id].SaleTerm = 0;
-        
-        proof = 0
+        sells[_id].Customer = address(0);
     }
 
     function checkEstates() public view returns (RealEstate[] memory) {
